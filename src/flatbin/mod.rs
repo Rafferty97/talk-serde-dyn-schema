@@ -33,6 +33,10 @@ impl FlatbinBuf {
         self.data.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn clear(&mut self) {
         self.data.clear();
     }
