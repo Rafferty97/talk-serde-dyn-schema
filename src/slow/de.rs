@@ -18,9 +18,9 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub fn deserialize(ty: &Ty, value: &JsonValue) -> Result<FlatbinBuf> {
-    let mut buffer = FlatbinBuilder::new();
-    ty.deserialize(value, &mut buffer)?;
-    Ok(buffer.finish())
+    let mut builder = FlatbinBuilder::new();
+    ty.deserialize(value, &mut builder)?;
+    Ok(builder.finish())
 }
 
 impl Ty {
@@ -31,11 +31,11 @@ impl Ty {
                 buf.write_bool(value);
             }
             Ty::U64 => {
-                let value = value.as_u64().ok_or(unexpected_type("a positive number", value))?;
+                let value = value.as_u64().ok_or(unexpected_type("a non-negative integer", value))?;
                 buf.write_uint(value);
             }
             Ty::I64 => {
-                let value = value.as_i64().ok_or(unexpected_type("a number", value))?;
+                let value = value.as_i64().ok_or(unexpected_type("an integer", value))?;
                 buf.write_int(value);
             }
             Ty::F64 => {
@@ -43,7 +43,7 @@ impl Ty {
                 buf.write_f64(value);
             }
             Ty::Bytes => {
-                let value = value.as_array().ok_or(unexpected_type("an array", value))?;
+                let value = value.as_array().ok_or(unexpected_type("a byte array", value))?;
                 let bytes = value
                     .iter()
                     .map(|value| value.as_u64()?.try_into().ok())
@@ -53,7 +53,7 @@ impl Ty {
             }
             Ty::String => {
                 let value = value.as_str().ok_or(unexpected_type("a string", value))?;
-                buf.write_string(value);
+                buf.write_str(value);
             }
             Ty::Array { inner } => {
                 let array = value.as_array().ok_or(unexpected_type("an array", value))?;

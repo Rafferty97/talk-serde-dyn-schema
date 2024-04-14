@@ -2,15 +2,14 @@
 
 use crate::array_def;
 use crate::binary::Flatbin;
-use crate::de::deserialize;
-use crate::ser::serialize;
+use crate::slow::{deserialize, serialize};
 use crate::struct_def;
 use crate::ty::Ty;
 use crate::JsonValue;
 
 #[test]
 fn unexpected_type() {
-    use crate::de::Error;
+    use crate::slow::Error;
 
     let result = deserialize(&Ty::Bool, &JsonValue::String("Hello".into()));
     assert!(matches!(result, Err(Error::UnexpectedType { .. })));

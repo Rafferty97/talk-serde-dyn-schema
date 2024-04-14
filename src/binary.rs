@@ -1,7 +1,7 @@
 use crate::varint::{self, read_varint, write_varint, VarInt};
 use thiserror::Error;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct FlatbinBuf {
     data: Vec<u8>,
 }
@@ -12,6 +12,7 @@ pub struct Flatbin {
     data: [u8],
 }
 
+#[derive(Default)]
 pub struct FlatbinBuilder {
     buffer: Vec<u8>,
     seqs: Vec<Seq>,
@@ -196,6 +197,10 @@ impl<'a> Sequence<'a> {
         self.count
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn iter(&self) -> SequenceIter<'a> {
         self.into_iter()
     }
@@ -238,10 +243,7 @@ impl<'a> ExactSizeIterator for SequenceIter<'a> {}
 
 impl FlatbinBuilder {
     pub fn new() -> Self {
-        Self {
-            buffer: vec![],
-            seqs: vec![],
-        }
+        Default::default()
     }
 
     pub fn finish(self) -> FlatbinBuf {
@@ -276,7 +278,7 @@ impl FlatbinBuilder {
         self.write(bytes);
     }
 
-    pub fn write_string(&mut self, value: &str) {
+    pub fn write_str(&mut self, value: &str) {
         self.write_bytes(value.as_bytes());
     }
 
