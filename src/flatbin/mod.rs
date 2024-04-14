@@ -153,7 +153,7 @@ impl Flatbin {
         Ok(&self.data)
     }
 
-    pub fn read_string(&self) -> Result<&str> {
+    pub fn read_str(&self) -> Result<&str> {
         std::str::from_utf8(&self.data).map_err(|_| Error::InvalidUTF8)
     }
 
@@ -314,7 +314,7 @@ mod test {
         assert_eq!(a.len(), 4);
         let mut a = a.iter();
         assert_eq!(a.next().unwrap().read_bool().unwrap(), true);
-        assert_eq!(a.next().unwrap().read_string().unwrap(), "Hello world");
+        assert_eq!(a.next().unwrap().read_str().unwrap(), "Hello world");
         let b = a.next().unwrap().read_tuple(2).unwrap();
         assert_eq!(b.len(), 2);
         let mut b = b.iter();

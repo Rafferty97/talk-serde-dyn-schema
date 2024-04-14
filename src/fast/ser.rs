@@ -11,7 +11,7 @@ pub fn serialize<S: Serializer>(ser: S, ty: &Ty, value: &Flatbin) -> Result<S::O
         Ty::I64 => ser.serialize_i64(value.read_i64().map_err(corrupt)?),
         Ty::F64 => ser.serialize_f64(value.read_f64().map_err(corrupt)?),
         Ty::Bytes => ser.serialize_bytes(value.read_bytes().map_err(corrupt)?),
-        Ty::String => ser.serialize_str(value.read_string().map_err(corrupt)?),
+        Ty::String => ser.serialize_str(value.read_str().map_err(corrupt)?),
         Ty::Array { inner } => {
             let array = value.read_array().map_err(corrupt)?;
             let mut seq = ser.serialize_seq(Some(array.len()))?;
