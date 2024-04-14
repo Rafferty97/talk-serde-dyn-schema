@@ -1,4 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::time::Duration;
 use talk_serde_dyn_schema::{array_def, fast, flatbin::FlatbinBuf, slow, struct_def, ty::Ty};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -46,6 +47,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut buffer = FlatbinBuf::new();
 
     let mut group = c.benchmark_group("deserialize");
+    group.measurement_time(Duration::from_secs(30));
     group.bench_function("deserialize_slow", |b| {
         b.iter(|| {
             buffer.clear();
@@ -62,6 +64,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.finish();
 
     let mut group = c.benchmark_group("serialize");
+    group.measurement_time(Duration::from_secs(30));
     group.bench_function("serialize_slow", |b| {
         b.iter(|| {
             let doc = slow::serialize(black_box(&schema), black_box(&binary)).unwrap();
