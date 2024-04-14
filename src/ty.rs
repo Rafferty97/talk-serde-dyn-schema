@@ -52,7 +52,7 @@ macro_rules! struct_def {
         let fields = vec![
             // Expand each key-value pair
             $(
-                Field {
+                $crate::ty::Field {
                     name: $key.into(),
                     ty: $value,
                 }
