@@ -1,5 +1,5 @@
 use crate::{
-    binary::{self, Flatbin},
+    flatbin::{self, Flatbin},
     ty::Ty,
 };
 use serde::{ser::SerializeMap, ser::SerializeSeq, Serialize, Serializer};
@@ -16,10 +16,7 @@ pub fn serialize<S: Serializer>(ser: S, ty: &Ty, value: &Flatbin) -> Result<S::O
             let array = value.read_array().map_err(corrupt)?;
             let mut seq = ser.serialize_seq(Some(array.len()))?;
             for value in array {
-                let ctx = TypedValue {
-                    ty: inner,
-                    value: value.map_err(corrupt)?,
-                };
+                let ctx = TypedValue { ty: inner, value };
                 seq.serialize_element(&ctx)?;
             }
             seq.end()
@@ -28,10 +25,7 @@ pub fn serialize<S: Serializer>(ser: S, ty: &Ty, value: &Flatbin) -> Result<S::O
             let tuple = value.read_tuple(fields.len()).map_err(corrupt)?;
             let mut map = ser.serialize_map(Some(fields.len()))?;
             for (field, value) in fields.iter().zip(tuple) {
-                let ctx = TypedValue {
-                    ty: &field.ty,
-                    value: value.map_err(corrupt)?,
-                };
+                let ctx = TypedValue { ty: &field.ty, value };
                 map.serialize_entry(&*field.name, &ctx)?;
             }
             map.end()
@@ -50,6 +44,6 @@ impl<'a> Serialize for TypedValue<'a> {
     }
 }
 
-fn corrupt<E: serde::ser::Error>(_: binary::Error) -> E {
+fn corrupt<E: serde::ser::Error>(_: flatbin::Error) -> E {
     E::custom("corrupt document")
 }

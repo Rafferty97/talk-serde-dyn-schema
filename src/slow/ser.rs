@@ -1,15 +1,15 @@
 use crate::{
-    binary::{self, Flatbin},
+    flatbin::{self, Flatbin},
     ty::Ty,
     JsonValue,
 };
 
-pub fn serialize(ty: &Ty, value: &Flatbin) -> binary::Result<JsonValue> {
+pub fn serialize(ty: &Ty, value: &Flatbin) -> flatbin::Result<JsonValue> {
     ty.serialize(value)
 }
 
 impl Ty {
-    pub fn serialize(&self, value: &Flatbin) -> binary::Result<JsonValue> {
+    pub fn serialize(&self, value: &Flatbin) -> flatbin::Result<JsonValue> {
         Ok(match self {
             Ty::Bool => value.read_bool()?.into(),
             Ty::U64 => value.read_u64()?.into(),
@@ -27,8 +27,8 @@ impl Ty {
             Ty::Array { inner } => value
                 .read_array()?
                 .iter()
-                .map(|bytes| inner.serialize(bytes?))
-                .collect::<binary::Result<Vec<_>>>()?
+                .map(|bytes| inner.serialize(bytes))
+                .collect::<flatbin::Result<Vec<_>>>()?
                 .into(),
             // Ty::Struct { fields } => {
             //     let mut out = serde_json::Map::<String, JsonValue>::new();
@@ -40,8 +40,8 @@ impl Ty {
             Ty::Struct { fields } => fields
                 .iter()
                 .zip(value.read_tuple(fields.len())?)
-                .map(|(field, bytes)| Ok((field.name.to_string(), field.ty.serialize(bytes?)?)))
-                .collect::<binary::Result<serde_json::Map<_, _>>>()?
+                .map(|(field, bytes)| Ok((field.name.to_string(), field.ty.serialize(bytes)?)))
+                .collect::<flatbin::Result<serde_json::Map<_, _>>>()?
                 .into(),
         })
     }

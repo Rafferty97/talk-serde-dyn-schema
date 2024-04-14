@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use talk_serde_dyn_schema::{array_def, fast, slow, struct_def, ty::Ty};
+use talk_serde_dyn_schema::{array_def, fast, flatbin::FlatbinBuf, slow, struct_def, ty::Ty};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let schema = struct_def!({
@@ -43,12 +43,23 @@ fn criterion_benchmark(c: &mut Criterion) {
     let json = serde_json::to_string_pretty(&doc).unwrap();
     let binary = slow::deserialize(&schema, &doc).unwrap();
 
-    c.bench_function("deserialize", |b| {
+    let mut buffer = FlatbinBuf::new();
+
+    let mut group = c.benchmark_group("deserialize");
+    group.bench_function("deserialize_slow", |b| {
         b.iter(|| {
+            buffer.clear();
             let doc = serde_json::from_str(&json).unwrap();
-            slow::deserialize(black_box(&schema), black_box(&doc))
+            slow::deserialize_into(black_box(&schema), black_box(&doc), &mut buffer)
         })
     });
+    group.bench_function("deserialize_fast", |b| {
+        b.iter(|| {
+            buffer.clear();
+            fast::deserialize_into(black_box(&schema), black_box(&json), &mut buffer)
+        })
+    });
+    group.finish();
 
     let mut group = c.benchmark_group("serialize");
     group.bench_function("serialize_slow", |b| {

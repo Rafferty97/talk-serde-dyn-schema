@@ -1,5 +1,5 @@
 use crate::{
-    binary::{FlatbinBuf, FlatbinBuilder},
+    flatbin::{Builder, FlatbinBuf},
     ty::{Field, Ty},
 };
 use serde::{
@@ -20,15 +20,20 @@ pub enum Error {
 
 // pub type Result<T> = std::result::Result<T, Error>;
 
-// FIXME: Error
 pub fn deserialize(ty: &Ty, value: &str) -> serde_json::Result<FlatbinBuf> {
-    let mut de = serde_json::Deserializer::from_str(value);
-    let mut builder = FlatbinBuilder::new();
-    deserialize_value(&mut de, ty, &mut builder)?;
-    Ok(builder.finish())
+    let mut buffer = FlatbinBuf::new();
+    deserialize_into(ty, value, &mut buffer)?;
+    Ok(buffer)
 }
 
-fn deserialize_value<'de, D: Deserializer<'de>>(de: D, ty: &Ty, builder: &mut FlatbinBuilder) -> Result<(), D::Error> {
+pub fn deserialize_into(ty: &Ty, value: &str, buffer: &mut FlatbinBuf) -> serde_json::Result<()> {
+    let mut de = serde_json::Deserializer::from_str(value);
+    let builder = Builder::new(buffer);
+    deserialize_value(&mut de, ty, builder)?;
+    Ok(())
+}
+
+fn deserialize_value<'de, D: Deserializer<'de>>(de: D, ty: &Ty, builder: Builder) -> Result<(), D::Error> {
     match ty {
         Ty::Bool => de.deserialize_bool(BoolVisitor { builder }),
         Ty::U64 => de.deserialize_u64(UIntVisitor { builder }),
@@ -43,7 +48,7 @@ fn deserialize_value<'de, D: Deserializer<'de>>(de: D, ty: &Ty, builder: &mut Fl
 
 struct TypedBuilder<'a> {
     pub ty: &'a Ty,
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'de, 'a> DeserializeSeed<'de> for TypedBuilder<'a> {
@@ -55,7 +60,7 @@ impl<'de, 'a> DeserializeSeed<'de> for TypedBuilder<'a> {
 }
 
 struct BoolVisitor<'a> {
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'a, 'de> Visitor<'de> for BoolVisitor<'a> {
@@ -74,7 +79,7 @@ impl<'a, 'de> Visitor<'de> for BoolVisitor<'a> {
 const OUT_OF_RANGE: &str = "value is outside numeric range for type";
 
 struct UIntVisitor<'a> {
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'a, 'de> Visitor<'de> for UIntVisitor<'a> {
@@ -85,19 +90,19 @@ impl<'a, 'de> Visitor<'de> for UIntVisitor<'a> {
     }
 
     fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<(), E> {
-        self.builder.write_uint(value);
+        self.builder.write_u64(value);
         Ok(())
     }
 
     fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<(), E> {
         let value = u64::try_from(value).map_err(|_| E::custom(OUT_OF_RANGE))?;
-        self.builder.write_uint(value);
+        self.builder.write_u64(value);
         Ok(())
     }
 }
 
 struct IntVisitor<'a> {
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'a, 'de> Visitor<'de> for IntVisitor<'a> {
@@ -109,18 +114,18 @@ impl<'a, 'de> Visitor<'de> for IntVisitor<'a> {
 
     fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<(), E> {
         let value = i64::try_from(value).map_err(|_| E::custom(OUT_OF_RANGE))?;
-        self.builder.write_int(value);
+        self.builder.write_i64(value);
         Ok(())
     }
 
     fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<(), E> {
-        self.builder.write_int(value);
+        self.builder.write_i64(value);
         Ok(())
     }
 }
 
 struct FloatVisitor<'a> {
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'a, 'de> Visitor<'de> for FloatVisitor<'a> {
@@ -155,7 +160,7 @@ impl<'a, 'de> Visitor<'de> for FloatVisitor<'a> {
 }
 
 struct BytesVisitor<'a> {
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'a, 'de> Visitor<'de> for BytesVisitor<'a> {
@@ -172,7 +177,7 @@ impl<'a, 'de> Visitor<'de> for BytesVisitor<'a> {
 }
 
 struct StringVisitor<'a> {
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'a, 'de> Visitor<'de> for StringVisitor<'a> {
@@ -190,7 +195,7 @@ impl<'a, 'de> Visitor<'de> for StringVisitor<'a> {
 
 struct ArrayVisitor<'a> {
     pub inner: &'a Ty,
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
@@ -201,24 +206,24 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
     }
 
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
-        self.builder.start_array(3); // FIXME
+        let mut vector = self.builder.start_vector();
         loop {
             let ctx = TypedBuilder {
                 ty: self.inner,
-                builder: self.builder,
+                builder: vector.as_builder(),
             };
             if seq.next_element_seed(ctx)?.is_none() {
                 break;
             }
         }
-        self.builder.end_seq();
+        vector.end();
         Ok(())
     }
 }
 
 struct StructVisitor<'a> {
     pub fields: &'a [Field],
-    pub builder: &'a mut FlatbinBuilder,
+    pub builder: Builder<'a>,
 }
 
 impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
@@ -229,15 +234,15 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     }
 
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
-        self.builder.start_tuple(self.fields.len());
+        let mut tuple = self.builder.start_tuple();
         while let Some(key) = map.next_key::<&str>()? {
             let ctx = TypedBuilder {
                 ty: &self.fields.iter().find(|f| &*f.name == key).unwrap().ty,
-                builder: self.builder,
+                builder: tuple.as_builder(),
             };
             map.next_value_seed(ctx)?;
         }
-        self.builder.end_seq();
+        tuple.end();
         Ok(())
     }
 }

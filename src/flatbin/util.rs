@@ -1,7 +1,8 @@
+#![allow(unused)]
+
 use std::ops::Deref;
 use thiserror::Error;
 
-/// A variable-length integer
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VarInt {
     /// The number of bytes in the varint
@@ -16,16 +17,6 @@ pub enum VarIntError {
     TooLarge,
     #[error("the varint was incomplete")]
     UnexpectedEOF,
-}
-
-pub fn read_varint(buffer: &mut &[u8]) -> Result<u64, VarIntError> {
-    let value = VarInt::from_slice(buffer)?;
-    *buffer = &buffer[value.num_bytes()..];
-    Ok(value.as_u64())
-}
-
-pub fn write_varint(buffer: &mut Vec<u8>, value: u64) {
-    buffer.extend(VarInt::from_u64(value).as_bytes());
 }
 
 impl VarInt {
@@ -83,7 +74,7 @@ impl VarInt {
         Self::from_u64(value as u64)
     }
 
-    pub fn as_bytes(&self) -> &[u8] {
+    pub fn as_slice(&self) -> &[u8] {
         &self.data[..(self.len as usize)]
     }
 
@@ -99,17 +90,13 @@ impl VarInt {
     pub fn as_usize(&self) -> Option<usize> {
         self.as_u64().try_into().ok()
     }
-
-    pub fn num_bytes(&self) -> usize {
-        self.len as usize
-    }
 }
 
 impl Deref for VarInt {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
-        self.as_bytes()
+        self.as_slice()
     }
 }
 
@@ -118,23 +105,21 @@ mod test {
     use super::*;
 
     #[test]
-    #[cfg_attr(miri, ignore)]
     fn small_varints() {
         for value in 0..100_000 {
             let a = VarInt::from_u64(value);
             assert_eq!(a.as_u64(), value);
-            assert_eq!(VarInt::from_slice(a.as_bytes()).unwrap().as_u64(), value);
+            assert_eq!(VarInt::from_slice(a.as_slice()).unwrap().as_u64(), value);
         }
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)]
     fn large_varints() {
         for divisor in [1, 10, 100, 1000, 10_1000, 100_000] {
             let value = u64::MAX / divisor;
             let a = VarInt::from_u64(value);
             assert_eq!(a.as_u64(), value);
-            assert_eq!(VarInt::from_slice(a.as_bytes()).unwrap().as_u64(), value);
+            assert_eq!(VarInt::from_slice(a.as_slice()).unwrap().as_u64(), value);
         }
     }
 }

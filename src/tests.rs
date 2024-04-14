@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use crate::array_def;
-use crate::binary::Flatbin;
-use crate::slow::{deserialize, serialize};
+use crate::flatbin::{Flatbin, FlatbinBuf};
+use crate::slow::{deserialize_into, serialize};
 use crate::struct_def;
 use crate::ty::Ty;
 use crate::JsonValue;
@@ -11,15 +11,19 @@ use crate::JsonValue;
 fn unexpected_type() {
     use crate::slow::Error;
 
-    let result = deserialize(&Ty::Bool, &JsonValue::String("Hello".into()));
+    let mut buffer = FlatbinBuf::new();
+
+    let result = deserialize_into(&Ty::Bool, &JsonValue::String("Hello".into()), &mut buffer);
     assert!(matches!(result, Err(Error::UnexpectedType { .. })));
 
-    let result = deserialize(&Ty::String, &JsonValue::Bool(true));
+    let result = deserialize_into(&Ty::String, &JsonValue::Bool(true), &mut buffer);
     assert!(matches!(result, Err(Error::UnexpectedType { .. })));
 }
 
 #[test]
 fn simple_roundtrip() {
+    let mut buffer = FlatbinBuf::new();
+
     let ty = struct_def!({
         "name": Ty::String,
         "age": Ty::U64,
@@ -37,8 +41,8 @@ fn simple_roundtrip() {
         "rustacean": true
     });
 
-    let bytes = deserialize(&ty, &value).unwrap();
-    let new_value = serialize(&ty, &bytes).unwrap();
+    deserialize_into(&ty, &value, &mut buffer).unwrap();
+    let new_value = serialize(&ty, &buffer).unwrap();
     assert_eq!(value, new_value);
 }
 
