@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use crate::array_def;
-use crate::flatbin::{Flatbin, FlatbinBuf};
-use crate::slow::{deserialize_into, serialize};
+use crate::flatbin::{Builder, Flatbin, FlatbinBuf};
+use crate::slow::{deserialize, deserialize_alloc, serialize};
 use crate::struct_def;
 use crate::ty::Ty;
 use crate::JsonValue;
@@ -11,12 +11,10 @@ use crate::JsonValue;
 fn unexpected_type() {
     use crate::slow::Error;
 
-    let mut buffer = FlatbinBuf::new();
-
-    let result = deserialize_into(&Ty::Bool, &JsonValue::String("Hello".into()), &mut buffer);
+    let result = deserialize_alloc(&Ty::Bool, &JsonValue::String("Hello".into()));
     assert!(matches!(result, Err(Error::UnexpectedType { .. })));
 
-    let result = deserialize_into(&Ty::String, &JsonValue::Bool(true), &mut buffer);
+    let result = deserialize_alloc(&Ty::String, &JsonValue::Bool(true));
     assert!(matches!(result, Err(Error::UnexpectedType { .. })));
 }
 
@@ -41,7 +39,7 @@ fn simple_roundtrip() {
         "rustacean": true
     });
 
-    deserialize_into(&ty, &value, &mut buffer).unwrap();
+    deserialize(&ty, &value, Builder::new(&mut buffer)).unwrap();
     let new_value = serialize(&ty, &buffer).unwrap();
     assert_eq!(value, new_value);
 }
