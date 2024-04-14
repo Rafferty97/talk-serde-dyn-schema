@@ -29,21 +29,8 @@ pub fn deserialize(ty: &Ty, value: &str) -> serde_json::Result<FlatbinBuf> {
 pub fn deserialize_into(ty: &Ty, value: &str, buffer: &mut FlatbinBuf) -> serde_json::Result<()> {
     let mut de = serde_json::Deserializer::from_str(value);
     let builder = Builder::new(buffer);
-    deserialize_value(&mut de, ty, builder)?;
+    TypedBuilder { ty, builder }.deserialize(&mut de)?;
     Ok(())
-}
-
-fn deserialize_value<'de, D: Deserializer<'de>>(de: D, ty: &Ty, builder: Builder) -> Result<(), D::Error> {
-    match ty {
-        Ty::Bool => de.deserialize_bool(BoolVisitor { builder }),
-        Ty::U64 => de.deserialize_u64(UIntVisitor { builder }),
-        Ty::I64 => de.deserialize_i64(IntVisitor { builder }),
-        Ty::F64 => de.deserialize_f64(FloatVisitor { builder }),
-        Ty::Bytes => de.deserialize_bytes(BytesVisitor { builder }),
-        Ty::String => de.deserialize_str(StringVisitor { builder }),
-        Ty::Array { inner } => de.deserialize_seq(ArrayVisitor { inner, builder }),
-        Ty::Struct { fields } => de.deserialize_map(StructVisitor { fields, builder }),
-    }
 }
 
 struct TypedBuilder<'a> {
@@ -55,7 +42,17 @@ impl<'de, 'a> DeserializeSeed<'de> for TypedBuilder<'a> {
     type Value = ();
 
     fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<(), D::Error> {
-        deserialize_value(deserializer, self.ty, self.builder)
+        let TypedBuilder { ty, builder } = self;
+        match ty {
+            Ty::Bool => deserializer.deserialize_bool(BoolVisitor { builder }),
+            Ty::U64 => deserializer.deserialize_u64(UIntVisitor { builder }),
+            Ty::I64 => deserializer.deserialize_i64(IntVisitor { builder }),
+            Ty::F64 => deserializer.deserialize_f64(FloatVisitor { builder }),
+            Ty::Bytes => deserializer.deserialize_bytes(BytesVisitor { builder }),
+            Ty::String => deserializer.deserialize_str(StringVisitor { builder }),
+            Ty::Array { inner } => deserializer.deserialize_seq(ArrayVisitor { inner, builder }),
+            Ty::Struct { fields } => deserializer.deserialize_map(StructVisitor { fields, builder }),
+        }
     }
 }
 
