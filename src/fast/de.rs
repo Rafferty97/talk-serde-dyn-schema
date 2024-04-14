@@ -1,5 +1,5 @@
 use crate::{
-    flatbin::{Builder, FlatbinBuf},
+    flatbin::{Builder, Flatbin, FlatbinBuf},
     ty::{Field, Ty},
 };
 use serde::{
@@ -234,15 +234,44 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     }
 
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
-        let mut tuple = self.builder.start_tuple();
+        let mut fields: Vec<(&Field, Option<(usize, usize)>)> = self.fields.iter().map(|f| (f, None)).collect();
+        let mut buffer = FlatbinBuf::new();
+
         while let Some(key) = map.next_key::<&str>()? {
+            // Find the struct field
+            let Some((field, value)) = fields.iter_mut().find(|f| &*f.0.name == key) else {
+                let msg = format!("unknown field \"{}\"", key);
+                return Err(serde::de::Error::custom(msg));
+            };
+
+            // Check for duplication
+            if value.is_some() {
+                let msg = format!("duplicate field \"{}\"", key);
+                return Err(serde::de::Error::custom(msg));
+            }
+
+            // Deserialize the value
+            let start = buffer.len();
             let ctx = TypedBuilder {
-                ty: &self.fields.iter().find(|f| &*f.name == key).unwrap().ty,
-                builder: tuple.as_builder(),
+                ty: &field.ty,
+                builder: Builder::new(&mut buffer),
             };
             map.next_value_seed(ctx)?;
+            *value = Some((start, buffer.len()));
+        }
+
+        // Write out the struct
+        let mut tuple = self.builder.start_tuple();
+        let buffer = buffer.as_bytes();
+        for (field, offsets) in fields {
+            let Some((start, end)) = offsets else {
+                let msg = format!("missing field \"{}\"", field.name);
+                return Err(serde::de::Error::custom(msg));
+            };
+            tuple.as_builder().copy(Flatbin::from_bytes(&buffer[start..end]))
         }
         tuple.end();
+
         Ok(())
     }
 }

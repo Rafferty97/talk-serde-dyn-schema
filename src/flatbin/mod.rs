@@ -29,6 +29,10 @@ impl FlatbinBuf {
         Self::default()
     }
 
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
     pub fn clear(&mut self) {
         self.data.clear();
     }

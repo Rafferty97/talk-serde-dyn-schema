@@ -39,6 +39,7 @@ mod test {
         });
 
         let bytes = deserialize(&ty, &value.to_string()).unwrap();
+        println!("{:?}", bytes);
         let new_value = serialize(serde_json::value::Serializer, &ty, &bytes).unwrap();
         assert_eq!(value, new_value);
     }
